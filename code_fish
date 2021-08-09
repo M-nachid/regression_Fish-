@@ -1,0 +1,237 @@
+# Attaching Necessary Library
+
+if (!require(readr)) install.packages("readr")
+if (!require(tidyverse)) install.packages("tidyverse")
+if (!require(caret)) install.packages("caret")
+if (!require(plotly)) install.packages("plotly")
+if (!require(data.table)) install.packages("data.table")
+if (!require(GGally)) install.packages("GGally")# package 'GGally' require >= 3.3.4 'ggplot2'
+if (!require(car)) install.packages("car")
+if (!require(scales)) install.packages("scales")
+if (!require(lmtest)) install.packages("lmtest")
+if (!require(ggplot2)) install.packages("ggplot2")
+if (!require(performance)) install.packages("performance")
+if (!require(MLmetrics)) install.packages("MLmetrics")
+if (!require(rmdformats)) install.packages("rmdformats")
+if (!require(corrplot)) install.packages("corrplot")
+if (!require(ggcorrplot)) install.packages("ggcorrplot")
+if (!require(psych)) install.packages("psych")
+if (!require(Metrics)) install.packages("Metrics")
+if (!require(dplyr)) install.packages("dplyr")
+if (!require(PerformanceAnalytics)) install.packages("PerformanceAnalytics")
+if (!require(corrgram)) install.packages("corrgram")
+if (!require(stats)) install.packages("stats")
+
+
+# Reading or Importing Data -----------------------------------------------
+
+url <- "https://raw.githubusercontent.com/M-nachid/test/main/Fish.csv"
+
+Fish <- read_csv(url)
+
+View(Fish)
+
+###================================================================
+##                 Data Exploration                              ==
+##================================================================
+colnames(Fish)
+
+str(Fish)
+
+glimpse(Fish)
+
+head(Fish)
+
+tail(Fish)
+
+names(Fish)
+
+colnames(Fish)
+
+nrow(Fish)
+
+ncol(Fish)
+
+dim(Fish)
+
+summary(Fish)
+
+brief(Fish)
+
+# variable selection 
+
+fish <- Fish %>% 
+  select(-Species)
+
+View(fish)
+##***************************************************************
+##                    Study the correlation                    **
+##***************************************************************
+
+lowerCor(x = fish)
+
+corr.test(fish)$p
+
+pairs(fish)
+
+pairs(fish)
+
+pairs(fish, lower.panel = NULL, col= "magenta")
+
+# Scatter Matrix  
+
+pairs.panels(fish, 
+             method = "pearson", 
+             hist.col = "red",
+             density = TRUE, 
+             cex.cor = 1.5, 
+             col = "blue", 
+             lm = TRUE, 
+             pch = 25,    
+             bg = "cyan") 
+
+# Scatter Matrix  
+
+scatterplotMatrix(fish, 
+                  col = "turquoise4", 
+                  pch = 21, 
+                  upper.panel = NULL)
+
+# Lastly
+chart.Correlation(fish, 
+                  histogram=TRUE,
+                  pch=19, 
+                  col = "grey")
+ 
+##***************************************************************
+##                  correlation plot matrices                  **
+##***************************************************************
+ggcorr(fish, label=TRUE, label_size=3 , hjust=1, layout.exp=2) 
+
+
+corrgram(fish, lower.panel=panel.shade , upper.panel=panel.cor)
+
+crl <- cor(fish)
+
+cor.plot(crl)
+
+corrplot(crl)
+
+
+# Heatmap 
+
+heatmap(crl, symm = TRUE, 
+        cexRow = 0.7, 
+        cexCol = 0.7)
+
+# ggcorrplot
+p <- ggcorrplot(crl, method = "square",
+                type = "upper", 
+                ggtheme = theme_linedraw, 
+                lab_col = "blue", 
+                lab_size = 3,
+                tl.cex = 10, 
+                lab = TRUE, 
+                pch.cex = 10, 
+                colors = c("#6D9EC1", "white", "#E46726")) 
+
+
+p
+p + guides(scale = "none")
+
+
+
+###================================================================
+##                 Running multiple regression                    ==
+##================================================================
+
+# choosing all variables as explanatory variables(length1, length2, length3, height, width) 
+
+model_all <- lm(Weight ~., data=fish )
+
+model_all
+
+summary(model_all)
+
+
+# We have problem of multicollinearity so we use stepwise regression 
+
+step(object=model_all, 
+     direction ="backward",
+     trace =FALSE)
+## according to backward lm(formula = Weight ~ Length1 + Length3 + Height, data = fish)
+
+step(object=model_all, 
+     direction ="forward",
+     scope=list(lower=model_all, upper=model_all),
+     trace =FALSE)
+
+## according to forward lm(formula = Weight ~ Length1 + Length2 + Length3 + Height + Width, data = fish)
+
+step(object=model_all, 
+     direction ="both",
+     scope=list(model_all, upper=model_all),
+     trace =FALSE)
+
+## according to both lm(formula = Weight ~ Length1 + Length2 + Length3 + Height + Width, data = fish)
+
+model_backward <- lm(formula = Weight ~ Length1 + Length3 + Height, data = fish)
+
+model_forward <- lm(formula = Weight ~ Length1 + Length2 + Length3 + Height + Width, data = fish)
+
+model_both <- lm(formula = Weight ~ Length1 + Length2 + Length3 + Height + Width, data = fish)
+
+# compare the best model 
+
+
+
+performance::compare_performance(model_all,model_backward, model_forward, model_both)
+
+## we choose the variables in backward model
+
+#=======================================
+###*************************************************************************
+###*************************************************************************
+###                                                                      ***
+###                          SPLITTING THE DATA                          ***
+###                        TRAINING AND TEST SETS                        ***
+###                                                                      ***
+###*************************************************************************
+###*************************************************************************
+###*
+set.seed(157)
+ind <- createDataPartition(fish$Weight, 
+                           p = 0.7, times = 1, list = FALSE)
+
+train_set <- fish[ind, ]
+test_set <- fish[-ind, ]
+nrow(train_set); nrow(test_set)
+
+# Training the model ------------------------------------------------------
+
+lm_fit <- lm(Weight ~ . , data = train_set)
+
+broom::tidy(lm_fit)
+broom::glance(lm_fit)
+
+###*  *** Prediction ***
+#     --------------------
+
+pred <- predict(object = lm_fit, newdata = test_set, type = "response") 
+
+head(pred)
+
+###       **** Model Evaluation ***
+#         -------------------------
+actual <- test_set$Weight
+mae <- Metrics::mae(actual = actual, predicted = pred)
+mse <- Metrics::mse(actual = actual, predicted = pred)
+rmse <- Metrics::rmse(actual = actual, predicted = pred)
+
+# Table of results
+
+knitr::kable(cbind(mae, mse, rmse))
+
+
+
+
